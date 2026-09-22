@@ -1,0 +1,156 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { categories } from '../data/products';
+import { DEMO_COUPON_CODE } from '../lib/store';
+---
+<BaseLayout title="Archity Ecommerce | Catálogo" description="Catálogo visual con filtros, carrito y checkout simulado en Astro.">
+  <section class="hero">
+    <h1>Diseño para hogar, compra 100% simulada</h1>
+    <p class="muted">Explora productos mock, filtra por categoría y prueba un flujo de compra completo sin backend.</p>
+    <div class="banner">⚠️ Tienda demo frontend-only: pagos y pedidos no procesan cobros reales.</div>
+  </section>
+
+  <section class="panel controls" aria-label="Filtros del catálogo">
+    <label>
+      <span class="muted">Búsqueda</span>
+      <input id="searchInput" type="search" placeholder="Buscar por nombre o descripción" />
+    </label>
+    <label>
+      <span class="muted">Categoría</span>
+      <select id="categorySelect">
+        {categories.map((category) => <option value={category}>{category}</option>)}
+      </select>
+    </label>
+    <label>
+      <span class="muted">Orden</span>
+      <select id="sortSelect">
+        <option value="featured">Destacados</option>
+        <option value="priceAsc">Precio: menor a mayor</option>
+        <option value="priceDesc">Precio: mayor a menor</option>
+        <option value="nameAsc">Nombre: A-Z</option>
+      </select>
+    </label>
+  </section>
+
+  <p class="notice">Cupón demo disponible en checkout/carrito: <strong>{DEMO_COUPON_CODE}</strong></p>
+
+  <section id="catalogGrid" class="grid" aria-live="polite"></section>
+  <p id="emptyState" class="panel muted" style="display:none;">No encontramos productos con esos filtros.</p>
+  <div class="row" style="justify-content:center; margin-top:1rem;">
+    <button id="loadMore" class="button-primary">Cargar más productos</button>
+  </div>
+</BaseLayout>
+
+<script>
+  import { products } from '../data/products';
+  import { addToCart, toggleFavorite, getState, subscribe } from '../lib/store';
+
+  const PAGE_SIZE = 6;
+  let visibleCount = PAGE_SIZE;
+
+  const grid = document.querySelector<HTMLDivElement>('#catalogGrid');
+  const emptyState = document.querySelector<HTMLParagraphElement>('#emptyState');
+  const loadMore = document.querySelector<HTMLButtonElement>('#loadMore');
+
+  const searchInput = document.querySelector<HTMLInputElement>('#searchInput');
+  const categorySelect = document.querySelector<HTMLSelectElement>('#categorySelect');
+  const sortSelect = document.querySelector<HTMLSelectElement>('#sortSelect');
+
+  const getFilteredProducts = () => {
+    const query = searchInput?.value.trim().toLowerCase() || '';
+    const category = categorySelect?.value || 'Todas';
+    const sort = sortSelect?.value || 'featured';
+
+    const filtered = products
+      .filter((product) => (category === 'Todas' ? true : product.category === category))
+      .filter(
+        (product) =>
+          product.name.toLowerCase().includes(query) || product.description.toLowerCase().includes(query)
+      );
+
+    if (sort === 'priceAsc') filtered.sort((a, b) => a.price - b.price);
+    if (sort === 'priceDesc') filtered.sort((a, b) => b.price - a.price);
+    if (sort === 'nameAsc') filtered.sort((a, b) => a.name.localeCompare(b.name));
+
+    return filtered;
+  };
+
+  const render = () => {
+    const filtered = getFilteredProducts();
+    const visible = filtered.slice(0, visibleCount);
+    const favorites = getState().favorites;
+
+    if (!grid || !emptyState || !loadMore) return;
+
+    if (visible.length === 0) {
+      grid.innerHTML = '';
+      emptyState.style.display = 'block';
+      loadMore.style.display = 'none';
+      return;
+    }
+
+    emptyState.style.display = 'none';
+
+    grid.innerHTML = visible
+      .map(
+        (product) => `
+          <article class="card">
+            <a href="/product/${product.slug}">
+              <img src="${product.image}" alt="${product.name}" loading="lazy" onerror="this.onerror=null;this.src='/placeholder.svg';" />
+            </a>
+            <div class="card-content">
+              <div class="row"><strong>${product.name}</strong><span class="muted">★ ${product.rating.toFixed(1)}</span></div>
+              <span class="muted">${product.category}</span>
+              <span class="price">$${product.price.toFixed(2)}</span>
+              <div class="card-actions">
+                <button class="button-primary" data-add="${product.id}">Agregar</button>
+                <button data-favorite="${product.id}">${favorites.includes(product.id) ? '❤ Guardado' : '♡ Favorito'}</button>
+              </div>
+            </div>
+          </article>
+        `
+      )
+      .join('');
+
+    loadMore.style.display = filtered.length > visibleCount ? 'inline-flex' : 'none';
+  };
+
+  const rerenderFromStart = () => {
+    visibleCount = PAGE_SIZE;
+    render();
+  };
+
+  [searchInput, categorySelect, sortSelect].forEach((element) => {
+    element?.addEventListener('input', rerenderFromStart);
+    element?.addEventListener('change', rerenderFromStart);
+  });
+
+  loadMore?.addEventListener('click', () => {
+    visibleCount += PAGE_SIZE;
+    render();
+  });
+
+  grid?.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+
+    const addId = target.dataset.add;
+    if (addId) {
+      addToCart(addId, 1);
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Producto agregado al carrito' } }));
+      return;
+    }
+
+    const favoriteId = target.dataset.favorite;
+    if (favoriteId) {
+      toggleFavorite(favoriteId);
+      const isFavorite = getState().favorites.includes(favoriteId);
+      window.dispatchEvent(
+        new CustomEvent('app:toast', {
+          detail: { message: isFavorite ? 'Producto guardado en favoritos' : 'Producto removido de favoritos' }
+        })
+      );
+    }
+  });
+
+  subscribe(render);
+</script>

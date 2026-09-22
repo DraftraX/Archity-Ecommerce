@@ -1,0 +1,32 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Confirmación simulada | Archity Ecommerce" description="Pantalla de confirmación de pedido simulado.">
+  <section class="panel" style="display:grid; gap:0.75rem;">
+    <h1 style="margin:0;">Pedido generado (simulado)</h1>
+    <p class="muted">Esta confirmación solo existe en tu navegador. No se creó un pedido en backend.</p>
+    <div id="confirmationContent" class="summary"></div>
+    <a href="/" class="button button-primary" style="max-width:max-content;">Volver al catálogo</a>
+  </section>
+</BaseLayout>
+
+<script>
+  const content = document.querySelector<HTMLDivElement>('#confirmationContent');
+
+  if (content && typeof window !== 'undefined') {
+    const raw = window.localStorage.getItem('archity-last-order');
+    if (!raw) {
+      content.innerHTML = '<p class="muted">No encontramos una orden reciente en este navegador.</p>';
+    } else {
+      const order = JSON.parse(raw);
+      content.innerHTML = `
+        <div class="row"><span>Código</span><strong>${order.id}</strong></div>
+        <div class="row"><span>Cliente</span><strong>${order.fullName}</strong></div>
+        <div class="row"><span>Email</span><strong>${order.email}</strong></div>
+        <div class="row"><span>Entrega</span><strong>${order.delivery}</strong></div>
+        <div class="row"><span>Pago</span><strong>${order.payment}</strong></div>
+        <div class="row"><span>Total simulado</span><strong>$${Number(order.totals?.total || 0).toFixed(2)}</strong></div>
+      `;
+    }
+  }
+</script>

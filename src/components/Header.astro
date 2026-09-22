@@ -1,0 +1,50 @@
+<header class="header">
+  <nav class="nav" aria-label="Principal">
+    <a class="brand" href="/">Archity Ecommerce</a>
+    <div class="menu">
+      <a href="/">Catálogo</a>
+      <a href="/checkout">Checkout</a>
+    </div>
+    <div class="actions">
+      <button class="mobile-toggle" id="mobileToggle" aria-expanded="false" aria-controls="mobileMenu">Menú</button>
+      <button id="favoritesOpen" aria-label="Abrir favoritos">❤ <span id="favoritesCount">0</span></button>
+      <button id="cartOpen" aria-label="Abrir carrito">🛒 <span id="cartCount">0</span></button>
+    </div>
+  </nav>
+  <div class="mobile-menu" id="mobileMenu" role="menu">
+    <a href="/" role="menuitem">Catálogo</a>
+    <a href="/checkout" role="menuitem">Checkout</a>
+  </div>
+</header>
+
+<script>
+  import { initStore, subscribe } from '../lib/store';
+
+  const mobileToggle = document.querySelector<HTMLButtonElement>('#mobileToggle');
+  const mobileMenu = document.querySelector<HTMLDivElement>('#mobileMenu');
+
+  mobileToggle?.addEventListener('click', () => {
+    mobileMenu?.classList.toggle('open');
+    const expanded = mobileMenu?.classList.contains('open') ? 'true' : 'false';
+    mobileToggle.setAttribute('aria-expanded', expanded);
+  });
+
+  initStore();
+
+  subscribe((state) => {
+    const cartCount = state.cart.reduce((acc, item) => acc + item.quantity, 0);
+    const favoritesCount = state.favorites.length;
+
+    const cartNode = document.querySelector('#cartCount');
+    const favoritesNode = document.querySelector('#favoritesCount');
+    if (cartNode) cartNode.textContent = String(cartCount);
+    if (favoritesNode) favoritesNode.textContent = String(favoritesCount);
+  });
+
+  const emitToggle = (drawerId: string) => {
+    window.dispatchEvent(new CustomEvent('app:toggle-drawer', { detail: drawerId }));
+  };
+
+  document.querySelector('#cartOpen')?.addEventListener('click', () => emitToggle('cartDrawer'));
+  document.querySelector('#favoritesOpen')?.addEventListener('click', () => emitToggle('favoritesDrawer'));
+</script>
