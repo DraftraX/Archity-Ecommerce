@@ -1,0 +1,19 @@
+<div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+  const container = document.querySelector<HTMLDivElement>('#toastContainer');
+
+  window.addEventListener('app:toast', (event) => {
+    const customEvent = event as CustomEvent<{ message: string }>;
+    if (!container || !customEvent.detail?.message) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = customEvent.detail.message;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+      toast.remove();
+    }, 2200);
+  });
+</script>

@@ -1,0 +1,127 @@
+---
+import { DEMO_COUPON_CODE } from '../lib/store';
+---
+<aside id="cartDrawer" class="drawer" aria-labelledby="cartDrawerTitle" role="dialog" aria-modal="true">
+  <div class="drawer-header row">
+    <strong id="cartDrawerTitle">Tu carrito</strong>
+    <button id="cartClose" aria-label="Cerrar carrito">Cerrar</button>
+  </div>
+  <div class="drawer-content" id="cartContent"></div>
+  <div class="drawer-footer">
+    <div class="summary" id="cartSummary"></div>
+    <div class="panel" style="margin:0.7rem 0 0;padding:0.75rem;">
+      <label for="couponCode">Cupón demo</label>
+      <div class="row" style="margin-top:0.4rem;">
+        <input id="couponCode" placeholder={`Usa ${DEMO_COUPON_CODE}`} />
+        <button id="applyCoupon">Aplicar</button>
+      </div>
+    </div>
+    <a href="/checkout" class="button button-primary" style="text-align:center;display:block;margin-top:0.65rem;">Ir al checkout</a>
+  </div>
+</aside>
+
+<script>
+  import { products } from '../data/products';
+  import {
+    getState,
+    subscribe,
+    getTotals,
+    removeFromCart,
+    updateCartQuantity,
+    applyCoupon,
+    clearCoupon,
+    DEMO_COUPON_CODE
+  } from '../lib/store';
+
+  const drawer = document.querySelector<HTMLElement>('#cartDrawer');
+  const content = document.querySelector<HTMLDivElement>('#cartContent');
+  const summary = document.querySelector<HTMLDivElement>('#cartSummary');
+
+  const open = () => drawer?.classList.add('open');
+  const close = () => drawer?.classList.remove('open');
+
+  window.addEventListener('app:toggle-drawer', (event) => {
+    const custom = event as CustomEvent<string>;
+    if (custom.detail !== 'cartDrawer') return;
+    drawer?.classList.toggle('open');
+  });
+
+  document.querySelector('#cartClose')?.addEventListener('click', close);
+
+  const renderCart = () => {
+    const state = getState();
+    const totals = getTotals(products);
+
+    if (!content || !summary) return;
+
+    if (state.cart.length === 0) {
+      content.innerHTML = '<p class="muted">Tu carrito está vacío.</p>';
+    } else {
+      content.innerHTML = state.cart
+        .map((item) => {
+          const product = products.find((entry) => entry.id === item.productId);
+          if (!product) return '';
+          return `
+            <article class="list-item">
+              <div class="row"><strong>${product.name}</strong><button data-remove="${product.id}">Eliminar</button></div>
+              <div class="row">
+                <span class="muted">$${product.price.toFixed(2)}</span>
+                <input data-qty="${product.id}" type="number" min="1" value="${item.quantity}" aria-label="Cantidad de ${product.name}" style="max-width:76px;" />
+              </div>
+            </article>
+          `;
+        })
+        .join('');
+    }
+
+    summary.innerHTML = `
+      <div class="row"><span>Subtotal</span><strong>$${totals.subtotal.toFixed(2)}</strong></div>
+      <div class="row"><span>Envío</span><strong>$${totals.shipping.toFixed(2)}</strong></div>
+      <div class="row"><span>Descuento</span><strong>-$${totals.discount.toFixed(2)}</strong></div>
+      <div class="row"><span>Total</span><strong>$${totals.total.toFixed(2)}</strong></div>
+      <small class="muted">* Pedidos simulados, sin backend ni cobro real.</small>
+    `;
+  };
+
+  content?.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    if (target.dataset.remove) {
+      removeFromCart(target.dataset.remove);
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Producto eliminado del carrito' } }));
+    }
+  });
+
+  content?.addEventListener('change', (event) => {
+    const target = event.target as HTMLInputElement;
+    if (target.dataset.qty) {
+      updateCartQuantity(target.dataset.qty, Number(target.value));
+    }
+  });
+
+  document.querySelector('#applyCoupon')?.addEventListener('click', () => {
+    const input = document.querySelector<HTMLInputElement>('#couponCode');
+    if (!input) return;
+    if (!input.value.trim()) {
+      clearCoupon();
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Cupón removido' } }));
+      return;
+    }
+
+    const success = applyCoupon(input.value);
+    window.dispatchEvent(
+      new CustomEvent('app:toast', {
+        detail: {
+          message: success ? `Cupón ${DEMO_COUPON_CODE} aplicado` : 'Cupón inválido (demo disponible en placeholder)'
+        }
+      })
+    );
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') close();
+  });
+
+  subscribe(renderCart);
+  open();
+  close();
+</script>

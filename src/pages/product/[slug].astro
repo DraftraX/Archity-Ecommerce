@@ -1,0 +1,64 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { products } from '../../data/products';
+
+export function getStaticPaths() {
+  return products.map((product) => ({
+    params: { slug: product.slug },
+    props: { product }
+  }));
+}
+
+const { product } = Astro.props;
+---
+<BaseLayout title={`${product.name} | Archity Ecommerce`} description={product.description}>
+  <article class="panel" style="display:grid; gap:1rem;">
+    <a href="/" class="muted">← Volver al catálogo</a>
+    <img id="detailImage" src={product.image} alt={product.name} loading="lazy" style="width:100%;border-radius:16px;max-height:430px;object-fit:cover;" />
+    <div class="row" style="align-items:flex-start;">
+      <div>
+        <h1 style="margin:.2rem 0;">{product.name}</h1>
+        <p class="muted" style="margin:0;">{product.category} · Stock {product.stock}</p>
+      </div>
+      <strong class="price">${product.price.toFixed(2)}</strong>
+    </div>
+    <p>{product.description}</p>
+    <p class="notice">Compra simulada: sin backend ni procesamiento de pago real.</p>
+    <div class="card-actions">
+      <button class="button-primary" id="detailAdd">Agregar al carrito</button>
+      <button id="detailFavorite">Guardar en favoritos</button>
+    </div>
+  </article>
+</BaseLayout>
+
+<script define:vars={{ id: product.id }}>
+  import { addToCart, toggleFavorite, getState, subscribe } from '../../lib/store';
+
+  const addButton = document.querySelector<HTMLButtonElement>('#detailAdd');
+  const favoriteButton = document.querySelector<HTMLButtonElement>('#detailFavorite');
+  const detailImage = document.querySelector<HTMLImageElement>('#detailImage');
+
+  detailImage?.addEventListener('error', () => {
+    detailImage.src = '/placeholder.svg';
+  });
+
+  addButton?.addEventListener('click', () => {
+    addToCart(id, 1);
+    window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Producto agregado al carrito' } }));
+  });
+
+  favoriteButton?.addEventListener('click', () => {
+    toggleFavorite(id);
+    const isFavorite = getState().favorites.includes(id);
+    window.dispatchEvent(
+      new CustomEvent('app:toast', {
+        detail: { message: isFavorite ? 'Añadido a favoritos' : 'Eliminado de favoritos' }
+      })
+    );
+  });
+
+  subscribe((state) => {
+    if (!favoriteButton) return;
+    favoriteButton.textContent = state.favorites.includes(id) ? '❤ Guardado' : '♡ Guardar en favoritos';
+  });
+</script>

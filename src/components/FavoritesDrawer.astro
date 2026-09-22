@@ -1,0 +1,77 @@
+<aside id="favoritesDrawer" class="drawer" aria-labelledby="favoritesDrawerTitle" role="dialog" aria-modal="true">
+  <div class="drawer-header row">
+    <strong id="favoritesDrawerTitle">Favoritos</strong>
+    <button id="favoritesClose" aria-label="Cerrar favoritos">Cerrar</button>
+  </div>
+  <div class="drawer-content" id="favoritesContent"></div>
+  <div class="drawer-footer muted">Tus favoritos se guardan en este navegador.</div>
+</aside>
+
+<script>
+  import { getState, subscribe, toggleFavorite, addToCart } from '../lib/store';
+  import { products } from '../data/products';
+
+  const drawer = document.querySelector<HTMLElement>('#favoritesDrawer');
+  const content = document.querySelector<HTMLDivElement>('#favoritesContent');
+
+  const renderFavorites = () => {
+    const state = getState();
+    const items = products.filter((product) => state.favorites.includes(product.id));
+
+    if (!content) return;
+
+    if (items.length === 0) {
+      content.innerHTML = '<p class="muted">No tienes favoritos todavía.</p>';
+      return;
+    }
+
+    content.innerHTML = items
+      .map(
+        (product) => `
+        <article class="list-item">
+          <div class="row"><strong>${product.name}</strong><span class="price">$${product.price.toFixed(2)}</span></div>
+          <div class="row">
+            <button data-add="${product.id}" class="button-primary">Agregar al carrito</button>
+            <button data-remove="${product.id}">Quitar</button>
+          </div>
+        </article>
+      `
+      )
+      .join('');
+  };
+
+  const close = () => drawer?.classList.remove('open');
+  const open = () => drawer?.classList.add('open');
+
+  window.addEventListener('app:toggle-drawer', (event) => {
+    const custom = event as CustomEvent<string>;
+    if (custom.detail !== 'favoritesDrawer') return;
+    drawer?.classList.toggle('open');
+  });
+
+  document.querySelector('#favoritesClose')?.addEventListener('click', close);
+
+  content?.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const addId = target.dataset.add;
+    const removeId = target.dataset.remove;
+
+    if (addId) {
+      addToCart(addId, 1);
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Producto agregado al carrito' } }));
+      open();
+      return;
+    }
+
+    if (removeId) {
+      toggleFavorite(removeId);
+      window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Favorito eliminado' } }));
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') close();
+  });
+
+  subscribe(renderFavorites);
+</script>
